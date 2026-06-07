@@ -1,0 +1,52 @@
+version: '3.9'
+
+services:
+  # ── PostgreSQL database ─────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB:       taskmanager
+      POSTGRES_USER:     postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Node.js / Express API ───────────────────────────────────────
+  api:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    environment:
+      PORT:        3000
+      DB_HOST:     db
+      DB_PORT:     5432
+      DB_NAME:     taskmanager
+      DB_USER:     postgres
+      DB_PASSWORD: postgres
+      DB_SSL:      "false"
+      FRONTEND_URL: http://localhost:5173
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── React frontend (dev server) ─────────────────────────────────
+  frontend:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
